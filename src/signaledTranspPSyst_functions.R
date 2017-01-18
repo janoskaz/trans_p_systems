@@ -301,7 +301,10 @@ applyPendingRules <- function(){
 applyEvents <- function(t){
   for (evt in ms@events){
     if (evt@time == t){
-      applyRule(evt@rule)
+      wm <- which(unlist(lapply(ms@membranes,FUN=function(x)return(x@label == evt@rule@left@emblabel))))
+      if (checkApplicability(evt@rule,ms@membranes[[wm]])){
+        applyRule(evt@rule)
+      }      
     }
   }
 }
@@ -338,14 +341,13 @@ computationalStep <- function(){
   for (i in 1:length(ms@membranes)){
     computeInMembrane(i)
   }
-  applyPendingRules()
 }
 
 # compute the whole system
 # IN: membraneSystem, numeric
 # OUT: list (of configurations in time steps)
 # membrane structure must be declared as ms
-simulate <- function(membraneSystem,time=Inf,fullConfig=TRUE){
+simulate <- function(membraneSystem,time=Inf){
   ms <<- membraneSystem
   output <- list()
   ti <- 1
@@ -355,12 +357,8 @@ simulate <- function(membraneSystem,time=Inf,fullConfig=TRUE){
     print(paste('step',ti,'of',time))
     applyEvents(ti)
     computationalStep()
-    if (fullConfig){
-      output[[ti]] <- getFullConfiguration(ms)
-    } else {
-      output[[ti]] <- getConfiguration(ms)
-    }  
-    # TODO - save configuration
+    applyPendingRules()
+    output[[ti]] <- getConfiguration(ms)  
     if(!rulesApplied){
       print('no rules can be applied, exit')
       return(output)
@@ -375,51 +373,11 @@ simulate <- function(membraneSystem,time=Inf,fullConfig=TRUE){
 ### GET SYSTEM CONFIGURATION ###
 ################################
 
-# is object vehicle? regardless to target
-# IN: multiset
-# OUT: logical
-# membrane structure must be declared as ms
-isVehicle <- function(obj){
-  if (obj@obj == 'veh'){
-    return(TRUE)
-  } else {
-    return(FALSE)
-  }
-}
-
-# number of vehicles in membrane
-# IN: membrane
-# OUT: numeric
-# membrane structure must be declared as ms
-getVehicleNr <- function(membrane){
-  return(
-    sum(
-      unlist(
-        lapply(
-          membrane@objects@objects,
-          function(x){return(isVehicle(x))}
-          ))))
-}
-
-# number of vehicles in membrane
-# IN: membraneSystem
-# OUT: list
-# membrane structure must be declared as ms
-getConfiguration <- function(membraneSystem){
-  return( 
-    matrix(
-      unlist(
-        lapply(
-          membraneSystem@membranes,
-          function(x){return(c(x@label,getVehicleNr(x)))}
-    )),nrow=2))
-}
-
 # all objects in membrane
 # IN: membraneSystem
 # OUT: list
 # membrane structure must be declared as ms
-getFullConfiguration <- function(membraneSystem){
+getConfiguration <- function(membraneSystem){
   return( 
         lapply(
           membraneSystem@membranes,
